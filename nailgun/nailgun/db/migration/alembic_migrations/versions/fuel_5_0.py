@@ -229,7 +229,8 @@ def upgrade():
                     )
     op.create_table('network_groups',
                     sa.Column('id', sa.Integer(), nullable=False),
-                    sa.Column('name', sa.Enum('fuelweb_admin', 'storage',
+                    sa.Column('name', sa.Enum('fuelweb_admin', 'iscsi-left',
+                                              'iscsi-right', 'nfs', 'migration',
                                               'management',
                                               'public', 'fixed', 'private',
                                               name='network_group_name'),

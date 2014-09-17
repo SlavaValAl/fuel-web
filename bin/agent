@@ -120,8 +120,10 @@ end
 
 class NodeAgent
   def initialize(logger, url=nil)
-    @logger = logger
+    mapping_file_source = '/cobbler/pub/la'
+    mapping_file_dest = '/root/mapping'
 
+    @logger = logger
     @api_default_address = "localhost"
     @api_default_port = "8000"
 
@@ -140,6 +142,12 @@ class NodeAgent
         @api_ip = "127.0.0.1"
       end
       @api_url = "http://#{@api_ip}:#{@api_default_port}/api"
+    end
+
+    if !File.exist?(mapping_file_dest)
+      @map_hash = Hash[*File.read(mapping_file_dest).split(/[, \n]+/)] if system("wget -O #{mapping_file_dest} http://#{@api_ip}#{mapping_file_source}")
+    else
+      @map_hash = Hash[*File.read(mapping_file_dest).split(/[, \n]+/)]
     end
 
     @os = Ohai::System.new()
@@ -182,6 +190,12 @@ class NodeAgent
     interfaces
   end
 
+  def _map_name(iface_name)
+    cmd = "ethtool -i #{iface_name} | awk '/bus-info/ {print $2}'"
+    pci_addr = `#{cmd}`.strip
+    @map_hash.has_key?(iface_name) ? @map_hash[pci_addr] : iface_name
+  end
+
   def _detailed
     detailed_meta = {
       :system => _system_info,
@@ -204,6 +218,8 @@ class NodeAgent
         # Remove interfaces like eth0.101-hapr, eth1-hapr
         next if int =~ /\d+-.+/
 
+        int_name = (defined? @map_hash) ? _map_name(int) : int
+        int_meta = {:name => int_name}
         int_meta = {:name => int}
         int_meta[:state] = intinfo[:state]
         (intinfo[:addresses] or {} rescue {}).each do |addr, addrinfo|

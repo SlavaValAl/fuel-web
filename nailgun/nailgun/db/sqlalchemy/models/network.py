@@ -50,16 +50,17 @@ class NetworkGroup(Base):
     NAMES = (
         # Node networks
         'fuelweb_admin',
-        'storage',
         # internal in terms of fuel
         'management',
         'public',
-
+        'iscsi-left',
+        'iscsi-right',
+        'nfs',
+        'migration',
         # private in terms of fuel
         'fixed',
         'private'
     )
-
     id = Column(Integer, primary_key=True)
     name = Column(Enum(*NAMES, name='network_group_name'), nullable=False)
     # can be nullable only for fuelweb admin net

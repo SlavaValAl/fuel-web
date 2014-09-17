@@ -807,17 +807,26 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
             'provider': 'ovs',
             'interfaces': {},  # It's a list of physical interfaces.
             'endpoints': {
-                'br-storage': {},
                 'br-mgmt': {},
                 'br-fw-admin': {},
             },
             'roles': {
                 'management': 'br-mgmt',
-                'storage': 'br-storage',
                 'fw-admin': 'br-fw-admin',
             },
-            'transformations': []
+            'transformations': [],
+            'storage_network_data' : {}
         }
+
+
+        iscsi_ng_names = [ 'iscsi-left' , 'iscsi-right' ]
+        storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
+        for iface in node.interfaces:
+            for ng in iface.assigned_networks_list:
+                if ng.name in storage_ng_names:
+                    attrs['storage_network_data'][ng.name + '_vlan'] = iface.vlan
+                    if ng.name in iscsi_ng_names:
+                        attrs['storage_network_data'][ng.namei + '_dev'] = iface.name
 
         if objects.Node.should_have_public(node):
             attrs['endpoints']['br-ex'] = {}
@@ -879,7 +888,7 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         # We have to add them after br-ethXX bridges because it is the way
         # to provide a right ordering of ifdown/ifup operations with
         # IP interfaces.
-        brnames = ['br-mgmt', 'br-storage', 'br-fw-admin']
+        brnames = ['br-mgmt', 'br-fw-admin']
         if objects.Node.should_have_public(node):
             brnames.append('br-ex')
 
@@ -891,7 +900,6 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
 
         # Populate IP address information to endpoints.
         netgroup_mapping = [
-            ('storage', 'br-storage'),
             ('management', 'br-mgmt'),
             ('fuelweb_admin', 'br-fw-admin'),
         ]
