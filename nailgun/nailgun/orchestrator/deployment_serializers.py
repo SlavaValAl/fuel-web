@@ -824,7 +824,7 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         for iface in node.interfaces:
             for ng in iface.assigned_networks_list:
                 if ng.name in storage_ng_names:
-                    attrs['storage_network_data'][ng.name + '_vlan'] = iface.vlan
+                    attrs['storage_network_data'][ng.name + '_vlan'] = iface.vlan_start
                     if ng.name in iscsi_ng_names:
                         attrs['storage_network_data'][ng.namei + '_dev'] = iface.name
 
