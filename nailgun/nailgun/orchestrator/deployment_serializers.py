@@ -814,19 +814,8 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
                 'management': 'br-mgmt',
                 'fw-admin': 'br-fw-admin',
             },
-            'transformations': [],
-            'storage_network_data' : {}
+            'transformations': []
         }
-
-
-        iscsi_ng_names = [ 'iscsi-left' , 'iscsi-right' ]
-        storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
-        for iface in node.interfaces:
-            for ng in iface.assigned_networks_list:
-                if ng.name in storage_ng_names:
-                    attrs['storage_network_data'][ng.name + '_vlan'] = ng.vlan_start
-                    if ng.name in iscsi_ng_names:
-                        attrs['storage_network_data'][ng.name + '_dev'] = iface.name
 
         if objects.Node.should_have_public(node):
             attrs['endpoints']['br-ex'] = {}
@@ -962,6 +951,31 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
             })
         elif node.cluster.network_config.segmentation_type == 'gre':
             attrs['roles']['mesh'] = 'br-mgmt'
+
+        storage_ng_info = {}
+        storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
+
+        for iface in node.interfaces:
+            for ng in iface.assigned_networks_list:
+                if ng.name in storage_ng_names:
+                    storage_ng_info[ng.name + '_vlan'] = ng.vlan_start
+                    storage_ng_info[ng.name + '_dev'] = iface.name
+
+        for ng in 'nfs', 'migration':
+            ng_vlan = str(storage_ng_info[ng + '_vlan'])
+            attrs['transformations'].append({
+                    'action': 'add-bond',
+                    'bridge': 'empty',
+                    'name': 'nfs',
+                    'provider': 'lnx',
+                    'interfaces': [
+                                    storage_ng_info['iscsi-left_dev'] + '.' + ng_vlan,
+                                    storage_ng_info['iscsi-right_dev'] +'.' + ng_vlan
+                                  ],
+                    'properties': {
+                                    'mode' : '1'
+                                  }
+            })
 
         return attrs
 
