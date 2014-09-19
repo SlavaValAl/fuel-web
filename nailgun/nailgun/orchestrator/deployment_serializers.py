@@ -955,11 +955,29 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         storage_ng_info = {}
         storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
 
+        dev_vlan_mapping = [
+            ('iscsi-left', 'iscsi-left'),
+            ('iscsi-left', 'migration'),
+            ('iscsi-left', 'nfs'),
+            ('iscsi-right', 'iscsi-right'),
+            ('iscsi-right', 'migration'),
+            ('iscsi-right', 'nfs'),
+        ]
+
         for iface in node.interfaces:
             for ng in iface.assigned_networks_list:
                 if ng.name in storage_ng_names:
                     storage_ng_info[ng.name + '_vlan'] = ng.vlan_start
                     storage_ng_info[ng.name + '_dev'] = iface.name
+
+        for iscsi_ng, ng in dev_vlan_mapping:
+            dev = storage_ng_info[iscsi_ng + '_dev']
+            vlan = str(storage_ng_info[ng + '_vlan'])
+            attrs['interfaces'][dev + '.' + vlan] = {
+                    'L2': {
+                           'vlan_splinters' : 'off'
+                          }
+            }
 
         for ng in 'nfs', 'migration':
             ng_vlan = str(storage_ng_info[ng + '_vlan'])
