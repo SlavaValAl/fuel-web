@@ -979,12 +979,12 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
                           }
             }
 
-        for ng in 'nfs', 'migration':
+        for ng in 'nfs' , 'migration':
             ng_vlan = str(storage_ng_info[ng + '_vlan'])
             attrs['transformations'].append({
                     'action': 'add-bond',
                     'bridge': 'empty',
-                    'name': 'nfs',
+                    'name': ng,
                     'provider': 'lnx',
                     'interfaces': [
                                     storage_ng_info['iscsi-left_dev'] + '.' + ng_vlan,
@@ -994,6 +994,16 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
                                     'mode' : '1'
                                   }
             })
+            netgroup = nm.get_node_network_by_netname(node, ng)
+            attrs['endpoints'][ng] = {}
+            attrs['endpoints'][ng]['IP'] = [netgroup['ip']]
+
+        for ngname in 'iscsi-left' , 'iscsi-right':
+            netgroup = nm.get_node_network_by_netname(node, ngname)
+            vlan = str(storage_ng_info[ngname + '_vlan'])
+            dev = storage_ng_info[ngname + '_dev']
+            attrs['endpoints'][dev + '.' + vlan] = {}
+            attrs['endpoints'][dev + '.' + vlan]['IP'] = [netgroup['ip']]
 
         return attrs
 
