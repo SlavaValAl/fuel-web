@@ -672,7 +672,9 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         """Serialize node, then it will be
         merged with common attributes
         """
-        node_attrs = {'network_scheme': cls.generate_network_scheme(node)}
+
+        is_storage_ng_exist = [ng for ng in cluster.network_groups if ng.name == 'storage']
+        node_attrs = {'network_scheme': cls.generate_network_scheme(node, is_storage_ng_exist)}
         node_attrs = cls.mellanox_settings(node_attrs, node)
         return node_attrs
 
@@ -798,7 +800,7 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         return attrs
 
     @classmethod
-    def generate_network_scheme(cls, node):
+    def generate_network_scheme(cls, node, is_storage_ng_exist):
 
         # Create a data structure and fill it with static values.
 
@@ -820,6 +822,10 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         if objects.Node.should_have_public(node):
             attrs['endpoints']['br-ex'] = {}
             attrs['roles']['ex'] = 'br-ex'
+
+        if is_storage_ng_exist:
+            attrs['endpoints']['br-storage'] = {}
+            attrs['roles']['storage'] = 'br-storage'
 
         nm = objects.Node.get_network_manager(node)
         iface_types = consts.NETWORK_INTERFACE_TYPES
@@ -880,6 +886,8 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         brnames = ['br-mgmt', 'br-fw-admin']
         if objects.Node.should_have_public(node):
             brnames.append('br-ex')
+        if is_storage_ng_exist:
+            brnames.append('br-storage')
 
         for brname in brnames:
             attrs['transformations'].append({
@@ -894,6 +902,8 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         ]
         if objects.Node.should_have_public(node):
             netgroup_mapping.append(('public', 'br-ex'))
+        if is_storage_ng_exist:
+            netgroup_mapping.append(('storage', 'br-storage'))
 
         netgroups = {}
         for ngname, brname in netgroup_mapping:
@@ -952,58 +962,59 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         elif node.cluster.network_config.segmentation_type == 'gre':
             attrs['roles']['mesh'] = 'br-mgmt'
 
-        storage_ng_info = {}
-        storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
+        if not is_storage_ng_exist:
+            storage_ng_info = {}
+            storage_ng_names = ['iscsi-left' , 'iscsi-right', 'nfs', 'migration']
 
-        dev_vlan_mapping = [
-            ('iscsi-left', 'iscsi-left'),
-            ('iscsi-left', 'migration'),
-            ('iscsi-left', 'nfs'),
-            ('iscsi-right', 'iscsi-right'),
-            ('iscsi-right', 'migration'),
-            ('iscsi-right', 'nfs'),
-        ]
+            dev_vlan_mapping = [
+                ('iscsi-left', 'iscsi-left'),
+                ('iscsi-left', 'migration'),
+                ('iscsi-left', 'nfs'),
+                ('iscsi-right', 'iscsi-right'),
+                ('iscsi-right', 'migration'),
+                ('iscsi-right', 'nfs'),
+            ]
 
-        for iface in node.interfaces:
-            for ng in iface.assigned_networks_list:
-                if ng.name in storage_ng_names:
-                    storage_ng_info[ng.name + '_vlan'] = ng.vlan_start
-                    storage_ng_info[ng.name + '_dev'] = iface.name
+            for iface in node.interfaces:
+                for ng in iface.assigned_networks_list:
+                    if ng.name in storage_ng_names:
+                        storage_ng_info[ng.name + '_vlan'] = ng.vlan_start
+                        storage_ng_info[ng.name + '_dev'] = iface.name
 
-        for iscsi_ng, ng in dev_vlan_mapping:
-            dev = storage_ng_info[iscsi_ng + '_dev']
-            vlan = str(storage_ng_info[ng + '_vlan'])
-            attrs['interfaces'][dev + '.' + vlan] = {
-                    'L2': {
-                           'vlan_splinters' : 'off'
-                          }
-            }
+            for iscsi_ng, ng in dev_vlan_mapping:
+                dev = storage_ng_info[iscsi_ng + '_dev']
+                vlan = str(storage_ng_info[ng + '_vlan'])
+                attrs['interfaces'][dev + '.' + vlan] = {
+                        'L2': {
+                               'vlan_splinters' : 'off'
+                              }
+                }
 
-        for ng in 'nfs' , 'migration':
-            ng_vlan = str(storage_ng_info[ng + '_vlan'])
-            attrs['transformations'].append({
-                    'action': 'add-bond',
-                    'bridge': 'empty',
-                    'name': ng,
-                    'provider': 'lnx',
-                    'interfaces': [
-                                    storage_ng_info['iscsi-left_dev'] + '.' + ng_vlan,
-                                    storage_ng_info['iscsi-right_dev'] +'.' + ng_vlan
-                                  ],
-                    'properties': {
-                                    'mode' : '1'
-                                  }
-            })
-            netgroup = nm.get_node_network_by_netname(node, ng)
-            attrs['endpoints'][ng] = {}
-            attrs['endpoints'][ng]['IP'] = [netgroup['ip']]
+            for ngname in 'nfs' , 'migration':
+                ng_vlan = str(storage_ng_info[ng + '_vlan'])
+                attrs['transformations'].append({
+                        'action': 'add-bond',
+                        'bridge': 'empty',
+                        'name': ngname,
+                        'provider': 'lnx',
+                        'interfaces': [
+                                        storage_ng_info['iscsi-left_dev'] + '.' + ng_vlan,
+                                        storage_ng_info['iscsi-right_dev'] +'.' + ng_vlan
+                                      ],
+                        'properties': {
+                                        'mode' : '1'
+                                      }
+                })
+                netgroup = nm.get_node_network_by_netname(node, ng)
+                attrs['endpoints'][ng] = {}
+                attrs['endpoints'][ng]['IP'] = [netgroup['ip']]
 
-        for ngname in 'iscsi-left' , 'iscsi-right':
-            netgroup = nm.get_node_network_by_netname(node, ngname)
-            vlan = str(storage_ng_info[ngname + '_vlan'])
-            dev = storage_ng_info[ngname + '_dev']
-            attrs['endpoints'][dev + '.' + vlan] = {}
-            attrs['endpoints'][dev + '.' + vlan]['IP'] = [netgroup['ip']]
+            for ngname in 'iscsi-left' , 'iscsi-right':
+                netgroup = nm.get_node_network_by_netname(node, ngname)
+                vlan = str(storage_ng_info[ngname + '_vlan'])
+                dev = storage_ng_info[ngname + '_dev']
+                attrs['endpoints'][dev + '.' + vlan] = {}
+                attrs['endpoints'][dev + '.' + vlan]['IP'] = [netgroup['ip']]
 
         return attrs
 

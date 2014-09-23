@@ -714,13 +714,15 @@ class NodeCollection(NailgunCollection):
         cls.update_slave_nodes_fqdn(instances)
 
         nodes_ids = [n.id for n in instances]
-        net_list = ['management', 'public', 'iscsi-left', 'iscsi-right', 'nfs', 'migration']
+        #net_list = ['management', 'public', 'iscsi-left', 'iscsi-right', 'nfs', 'migration']
         # TODO(enchantner): check network manager instance for each node
         netmanager = Cluster.get_network_manager()
-        if nodes_ids:
-            for net in net_list:
-                netmanager.assign_ips(nodes_ids, net)
+        # it is assumed that all nodes are belong to the same cluster
+        cluster_network_list = netmanager.get_cluster_network_groups(instances[0].cluster_id)
 
+        if nodes_ids:
+            for net in cluster_network_list:
+                netmanager.assign_ips(nodes_ids, net)
             for node in instances:
                 netmanager.assign_admin_ips(node.id)
 

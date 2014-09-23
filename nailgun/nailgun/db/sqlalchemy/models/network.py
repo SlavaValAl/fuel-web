@@ -53,10 +53,13 @@ class NetworkGroup(Base):
         # internal in terms of fuel
         'management',
         'public',
+        'storage',
+        #ecm
         'iscsi-left',
         'iscsi-right',
         'nfs',
         'migration',
+        #ecm
         # private in terms of fuel
         'fixed',
         'private'
