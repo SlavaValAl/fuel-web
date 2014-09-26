@@ -780,6 +780,10 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         return False
 
     @classmethod
+    def _get_dev_by_role(cls, node, devname, vlan):
+        return devname + '.' + vlan if cls._node_has_role_by_name(node, 'compute') else devname
+
+    @classmethod
     def neutron_attrs(cls, cluster):
         """Network configuration for Neutron
         """
@@ -962,16 +966,10 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         elif node.cluster.network_config.segmentation_type == 'gre':
             attrs['roles']['mesh'] = 'br-mgmt'
 
+
         if not is_storage_ng_exist:
             storage_ng_info = {}
             storage_ng_names = ['iscsi-left' , 'iscsi-right', 'migration']
-
-            dev_vlan_mapping = [
-                ('iscsi-left', 'iscsi-left'),
-                ('iscsi-left', 'migration'),
-                ('iscsi-right', 'iscsi-right'),
-                ('iscsi-right', 'migration'),
-            ]
 
             for iface in node.interfaces:
                 for ng in iface.assigned_networks_list:
@@ -979,42 +977,53 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
                         storage_ng_info[ng.name + '_vlan'] = ng.vlan_start
                         storage_ng_info[ng.name + '_dev'] = iface.name
 
-            #add subinterfaces - L2
-            for iscsi_ng, ng in dev_vlan_mapping:
-                dev = storage_ng_info[iscsi_ng +]
-                vlan = str(storage_ng_info[ng + '_vlan'])
-                attrs['interfaces'][dev + '.' + vlan] = {
-                        'L2': {
-                               'vlan_splinters' : 'off'
-                              }
-                }
-
-            #add migration bond and assign ip to it L2 + L3
-            migr_vlan = str(storage_ng_info['migration_vlan'])
-            attrs['transformations'].append({
-                    'action': 'add-bond',
-                    'bridge': 'empty',
-                    'name': 'bond-migration',
-                    'provider': 'lnx',
-                    'interfaces': [
-                                    storage_ng_info['iscsi-left_dev'] + '.' + migr_vlan,
-                                    storage_ng_info['iscsi-right_dev'] +'.' + migr_vlan
-                                  ],
-                    'properties': {
-                                    'mode' : '1'
-                                  }
-            })
-            migr_netgroup = nm.get_node_network_by_netname(node, 'migration')
-            attrs['endpoints']['bond-migration'] = {}
-            attrs['endpoints']['bond-migration']['IP'] = [migr_netgroup['ip']]
-
-            #assign ip to subinterfaces - L3
             for ngname in 'iscsi-left' , 'iscsi-right':
                 netgroup = nm.get_node_network_by_netname(node, ngname)
-                vlan = str(storage_ng_info[ngname + '_vlan'])
-                dev = storage_ng_info[ngname + '_dev']
-                attrs['endpoints'][dev + '.' + vlan] = {}
-                attrs['endpoints'][dev + '.' + vlan]['IP'] = [netgroup['ip']]
+                dev = cls._get_dev_by_role(
+                                          node,
+                                          storage_ng_info[ngname + '_dev'],
+                                          str(storage_ng_info[ngname + '_vlan'])
+                                         )
+                attrs['endpoints'][dev] = {}
+                attrs['endpoints'][dev]['IP'] = [netgroup['ip']]
+                attrs['roles'][ngname] = dev
+
+            if cls._node_has_role_by_name(node, 'compute'):
+                migr_vlan = str(storage_ng_info['migration_vlan'])
+                migr_bond = 'bond-migration'
+                dev_vlan_mapping = [
+                    ('iscsi-left', 'iscsi-left'),
+                    ('iscsi-left', 'migration'),
+                    ('iscsi-right', 'iscsi-right'),
+                    ('iscsi-right', 'migration'),
+                ]
+
+                for iscsi_ng, ng in dev_vlan_mapping:
+                    dev = storage_ng_info[iscsi_ng + '_dev']
+                    vlan = str(storage_ng_info[ng + '_vlan'])
+                    attrs['interfaces'][dev + '.' + vlan] = {
+                            'L2': {
+                                   'vlan_splinters' : 'off'
+                                  }
+                    }
+
+                attrs['transformations'].append({
+                        'action': 'add-bond',
+                        'bridge': 'empty',
+                        'name': migr_bond,
+                        'provider': 'lnx',
+                        'interfaces': [
+                                        storage_ng_info['iscsi-left_dev'] + '.' + migr_vlan,
+                                        storage_ng_info['iscsi-right_dev'] +'.' + migr_vlan
+                                      ],
+                        'properties': {
+                                        'mode' : '1'
+                                      }
+                })
+                migr_netgroup = nm.get_node_network_by_netname(node, 'migration')
+                attrs['endpoints'][migr_bond] = {}
+                attrs['endpoints'][migr_bond]['IP'] = [migr_netgroup['ip']]
+                attrs['roles']['migration'] = storage_ng_info['migration_dev']
 
         return attrs
 

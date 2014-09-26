@@ -86,12 +86,6 @@ class NetworkManager(object):
         return admin_ng
 
     @classmethod
-    def get_cluster_network_groups(cls, cluster_id):
-        # return all network belongs to cluster
-        cluster = objects.Cluster.get_by_uid(cluster_id)
-        return [net.name for net in cluster.network_groups]
-
-    @classmethod
     def cleanup_network_group(cls, nw_group):
         """Network group cleanup - deletes all IPs were assigned within
         the network group.
