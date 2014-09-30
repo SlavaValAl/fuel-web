@@ -571,16 +571,6 @@
             map_priority: 2
             configurable: true
             assign_vip: true
-          - name: "nfs"
-            cidr: "192.168.4.0/24"
-            vlan_start: 104
-            use_gateway: false
-            notation: "cidr"
-            render_type: "cidr"
-            render_addr_mask: "nfs"
-            map_priority: 2
-            configurable: true
-            assign_vip: false
           - name: "migration"
             cidr: "192.168.5.0/24"
             vlan_start: 105
