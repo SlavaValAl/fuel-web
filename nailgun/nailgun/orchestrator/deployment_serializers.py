@@ -1023,7 +1023,7 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
                 migr_netgroup = nm.get_node_network_by_netname(node, 'migration')
                 attrs['endpoints'][migr_bond] = {}
                 attrs['endpoints'][migr_bond]['IP'] = [migr_netgroup['ip']]
-                attrs['roles']['migration'] = storage_ng_info['migration_dev']
+                attrs['roles']['migration'] = migr_bond
 
         return attrs
 
