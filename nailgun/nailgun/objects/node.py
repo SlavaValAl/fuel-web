@@ -718,7 +718,7 @@ class NodeCollection(NailgunCollection):
         # TODO(enchantner): check network manager instance for each node
         netmanager = Cluster.get_network_manager()
         # it is assumed that all nodes are belong to the same cluster
-        cluster_network_list = [net.name for net in instances[0].cluster.network_groups]
+        cluster_network_list = [net.name for net in instances[0].cluster.network_groups if net.name != 'private']
 
         if nodes_ids:
             for net in cluster_network_list:
