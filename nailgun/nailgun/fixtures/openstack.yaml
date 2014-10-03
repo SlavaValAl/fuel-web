@@ -314,6 +314,12 @@
             description: "Quotas are used to limit CPU and memory usage for tenants. Enabling quotas will increase load on the Nova database."
             weight: 25
             type: "checkbox"
+          mos_network:
+            value: true
+            label: "MOS network approach"
+            description: "If selected, MOS network approach will be installed"
+            weight: 27
+            type: "checkbox"
           auto_assign_floating_ip:
             value: false
             label: "Auto assign floating IP"
