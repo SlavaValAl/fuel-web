@@ -232,6 +232,7 @@ def upgrade():
                     sa.Column('name', sa.Enum('fuelweb_admin', 'storage',
                                               'management',
                                               'public', 'fixed', 'private',
+                                              'iscsi-left', 'iscsi-right', 'migration',
                                               name='network_group_name'),
                               nullable=False),
                     sa.Column('release', sa.Integer(), nullable=True),
