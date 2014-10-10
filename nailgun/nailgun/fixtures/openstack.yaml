@@ -563,7 +563,7 @@
             assign_vip: true
           - name: "management"
             cidr: "192.168.0.0/24"
-            vlan_start: 101
+            vlan_start: 100
             use_gateway: false
             notation: "cidr"
             render_type: "cidr"
@@ -571,23 +571,13 @@
             map_priority: 2
             configurable: true
             assign_vip: true
-          - name: "storage"
+          - name: "migration"
             cidr: "192.168.1.0/24"
-            vlan_start: 102
+            vlan_start: 101
             use_gateway: false
             notation: "cidr"
             render_type: "cidr"
             render_addr_mask: "storage"
-            map_priority: 2
-            configurable: true
-            assign_vip: false
-          - name: "migration"
-            cidr: "192.168.5.0/24"
-            vlan_start: 105
-            use_gateway: false
-            notation: "cidr"
-            render_type: "cidr"
-            render_addr_mask: "migration"
             map_priority: 2
             configurable: true
             assign_vip: false
@@ -596,7 +586,7 @@
             vlan_start: 102
             use_gateway: false
             notation: "cidr"
-            render_type: "cidr"
+            render_type: "null"
             render_addr_mask: "iscsi-left"
             map_priority: 2
             configurable: true
@@ -606,7 +596,7 @@
             vlan_start: 103
             use_gateway: false
             notation: "cidr"
-            render_type: "cidr"
+            render_type: "null"
             render_addr_mask: "iscsi-right"
             map_priority: 2
             configurable: true
