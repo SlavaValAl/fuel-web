@@ -819,9 +819,24 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
             'transformations': []
         }
 
+        ###FIXED
+        standard_ng_list = set(['public', 'storage', 'management'])
+        full_cluster_ng_list = set([net.name for net in node.cluster.network_groups if net.name != 'private'])
+        new_ng_list = list(full_cluster_ng_list - standard_ng_list)
+        new_ng_mapping = []
+        new_ng_bridges_list = []
+
         if objects.Node.should_have_public(node):
             attrs['endpoints']['br-ex'] = {}
             attrs['roles']['ex'] = 'br-ex'
+
+        ###FIXED
+        for ngname in new_ng_list:
+            bridge_name = 'br-%s' % ngname
+            attrs['endpoints'][bridge_name] = {}
+            attrs['roles'][ngname] = bridge_name
+            new_ng_bridges_list.append(bridge_name)
+            new_ng_mapping.append((ngname, bridge_name))
 
         nm = objects.Node.get_network_manager(node)
         iface_types = consts.NETWORK_INTERFACE_TYPES
@@ -883,6 +898,9 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         if objects.Node.should_have_public(node):
             brnames.append('br-ex')
 
+        ###FIXED
+        brnames.extend(new_ng_bridges_list)
+
         for brname in brnames:
             attrs['transformations'].append({
                 'action': 'add-br',
@@ -897,6 +915,9 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
         ]
         if objects.Node.should_have_public(node):
             netgroup_mapping.append(('public', 'br-ex'))
+
+        ###FIXED
+        netgroup_mapping.extend(new_ng_mapping)
 
         netgroups = {}
         for ngname, brname in netgroup_mapping:
