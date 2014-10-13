@@ -831,6 +831,10 @@ class NeutronNetworkDeploymentSerializer(NetworkDeploymentSerializer):
             attrs['roles']['ex'] = 'br-ex'
 
         ###FIXED
+        if not cls._node_has_role_by_name(node, 'compute'):
+            new_ng_list.remove('migration')
+
+        ###FIXED
         for ngname in new_ng_list:
             bridge_name = 'br-%s' % ngname
             attrs['endpoints'][bridge_name] = {}
